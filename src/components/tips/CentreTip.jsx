@@ -1,0 +1,110 @@
+import { clockLabel } from "../../match";
+
+export function BlockedTip({ match, event }) {
+  if (!event) return null;
+  const team = event.team === "away" ? match.away : match.home;
+  const clock = clockLabel(event);
+  const player = String(event.player || "").trim();
+  const kit = team.color || "#152038";
+
+  return (
+    <div className="centre-tip" style={{ "--shot-kit": kit }} role="status">
+      <div className="centre-tip-card">
+        <div className="centre-tip-banner">{player || team.name}</div>
+        <div className="centre-tip-body">
+          Shot blocked{clock ? ` · ${clock}` : ""}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function InjuryTip({ match, event }) {
+  if (!event) return null;
+  const team = event.team === "away" ? match.away : match.home;
+  const player = String(event.player || "").trim();
+  const kit = team.color || "#152038";
+
+  return (
+    <div className="centre-tip injury-tip" style={{ "--shot-kit": kit }} role="status">
+      <div className="centre-tip-card">
+        <div className="centre-tip-banner">{player || team.name}</div>
+        <div className="centre-tip-body injury-tip-body">
+          <AmbulanceIcon />
+          <span>Injured</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function CornerTip({ match, event }) {
+  if (!event) return null;
+  const team = event.team === "away" ? match.away : match.home;
+
+  return (
+    <div className="corner-tip" role="status">
+      <div className="corner-tip-banner">
+        <strong>{team.name}</strong>
+        <span>Corner kick</span>
+      </div>
+    </div>
+  );
+}
+
+export function ThrowInTip({ match, event }) {
+  if (!event) return null;
+  const team = event.team === "away" ? match.away : match.home;
+
+  return (
+    <div className="throwin-tip" role="status">
+      <span className="throwin-tip-pill">
+        <ThrowInIcon />
+        <span>Throw-in {team.name}</span>
+      </span>
+    </div>
+  );
+}
+
+function AmbulanceIcon() {
+  return (
+    <svg className="injury-tip-ico" viewBox="0 0 28 18" aria-hidden="true">
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        d="M2.5 12.5 V6.2 c0-.9.7-1.7 1.7-1.7 h9.2 c.5 0 1 .2 1.3.6 L17.5 8.5 h5.2 c.9 0 1.6.7 1.6 1.6 v2.4"
+      />
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        d="M2.5 12.5 h20.8"
+      />
+      <circle cx="7.2" cy="13.8" r="2.1" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="19.5" cy="13.8" r="2.1" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path
+        fill="currentColor"
+        d="M9.2 4.2 h2.2 v-1.6 h1.4 v1.6 h2.2 v1.4 h-2.2 v1.6 h-1.4 V5.6 H9.2 z"
+      />
+    </svg>
+  );
+}
+
+function ThrowInIcon() {
+  return (
+    <svg className="throwin-tip-ico" viewBox="0 0 12 12" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M9.241,7v1.622H7.018c-0.722,0-1.334-0.452-1.432-1.015C5,8,4.5,8,3.836,7.66 c0.111,1.611,1.493,2.889,3.18,2.889H9.24V12l2.26-2.5L9.241,7z"
+      />
+      <path
+        fill="currentColor"
+        d="m8.05 5.117l-.468-.153c-.032-.014-.064-.019-.097-.019-.078 0-.144.037-.194.111l-.876 1.274c-.07.079-.07.204 0 .283l.269.398c-.634.468-1.343.704-2.135.715v-.543c-.014-.134-.076-.211-.19-.245l-1.472-.436c-.032-.001-.061-.014-.088-.014-.079 0-.137.035-.186.098l-.324.416c-.19-.152-.328-.273-.417-.361-.406-.4-.704-.871-.889-1.413l.463-.189c.104-.043.162-.116.162-.237v-1.548c0-.106-.077-.205-.181-.236l-.472-.144c.231-.751.662-1.362 1.296-1.84l.343.417c.055.066.111.102.19.102.027 0 .055-.005.083-.014l1.472-.468c.122-.039.183-.125.181-.246l-.008-.551c.764 0 1.472.227 2.121.677l-.32.491c-.03.047-.046.093-.046.139 0 .051.019.097.056.148l.899 1.251c.052.073.111.111.189.111.032 0 .064-.007.098-.019l.541-.19c.111.338.168.7.168 1.084 0 .414-.057.794-.168 1.151m.119-2.697c-.215-.49-.498-.91-.853-1.265s-.78-.632-1.273-.84c-.491-.208-1-.315-1.54-.315h-.048c-.542 0-1.058.114-1.548.328-.49.215-.913.504-1.268.867-.354.36-.629.788-.836 1.282-.205.491-.306 1-.306 1.541v.022c0 .538.108 1.055.324 1.544.213.486.502.907.857 1.26.358.355.784.635 1.273.841.494.209 1.01.315 1.544.315h.043c.543 0 1.059-.114 1.553-.328.494-.215.914-.505 1.269-.867.353-.36.631-.786.835-1.282.198-.485.302-.989.302-1.519v-.044c0-.538-.114-1.054-.328-1.54m-3.066.217c-.051-.069-.114-.102-.188-.102-.032 0-.064.005-.096.019l-1.423.467c-.115.037-.17.119-.168.242l.018 1.5c.0001.11.064.211.169.234l1.404.449c.032.014.064.018.096.018.073 0 .137-.031.188-.101l.906-1.226c.031-.055.05-.11.05-.161 0-.046-.019-.096-.05-.151l-.906-1.188"
+      />
+    </svg>
+  );
+}
