@@ -44,6 +44,9 @@ services:
       MATCH_SEED_PATH: /seed
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
+      FOUNDRY_ENDPOINT: ${FOUNDRY_ENDPOINT:-}
+      FOUNDRY_MODEL: ${FOUNDRY_MODEL:-gpt-4o-mini}
+      FOUNDRY_API_KEY: ${FOUNDRY_API_KEY:-}
     ports:
       - "8080:8080"
     volumes:

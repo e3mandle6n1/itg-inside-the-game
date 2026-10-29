@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Touchline.Api.Endpoints;
 using Touchline.Api.Services;
+using Touchline.Api.Services.Insights;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,9 +30,27 @@ builder.Services.PostConfigure<BlobStorageOptions>(options =>
     if (!string.IsNullOrWhiteSpace(seed)) options.SeedPath = seed;
 });
 
+builder.Services.Configure<FoundryOptions>(builder.Configuration.GetSection(FoundryOptions.SectionName));
+builder.Services.PostConfigure<FoundryOptions>(options =>
+{
+    var endpoint = builder.Configuration["FOUNDRY_ENDPOINT"]
+        ?? builder.Configuration["AZURE_OPENAI_ENDPOINT"];
+    var model = builder.Configuration["FOUNDRY_MODEL"]
+        ?? builder.Configuration["AZURE_OPENAI_DEPLOYMENT"];
+    var key = builder.Configuration["FOUNDRY_API_KEY"]
+        ?? builder.Configuration["AZURE_OPENAI_API_KEY"];
+    if (!string.IsNullOrWhiteSpace(endpoint)) options.Endpoint = endpoint;
+    if (!string.IsNullOrWhiteSpace(model)) options.Model = model;
+    if (!string.IsNullOrWhiteSpace(key)) options.ApiKey = key;
+});
+
 builder.Services.AddSingleton<HubFeedStore>();
 builder.Services.AddSingleton<IMatchStore, BlobMatchStore>();
 builder.Services.AddSingleton<IEventHubPublisher, EventHubPublisher>();
+builder.Services.AddSingleton<InsightTools>();
+builder.Services.AddSingleton<RulesNarrator>();
+builder.Services.AddSingleton<INarrator, FoundryNarrator>();
+builder.Services.AddSingleton<AskService>();
 builder.Services.AddHostedService<HubConsumerService>();
 builder.Services.AddHostedService<MatchSeedHostedService>();
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -44,6 +63,7 @@ var app = builder.Build();
 
 app.MapMatchEndpoints();
 app.MapLiveEndpoints();
+app.MapAskEndpoints();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.Run();
