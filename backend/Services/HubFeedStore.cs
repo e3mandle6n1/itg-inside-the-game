@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Threading.Channels;
+using Touchline.Api.Models;
 
 namespace Touchline.Api.Services;
 
@@ -19,6 +20,28 @@ public sealed class HubFeedStore
 
     public FeedState? Get(string matchId) =>
         _feeds.TryGetValue(matchId, out var feed) ? feed : null;
+
+    /// <summary>
+    /// Point-in-time buffer for browser refresh: fixture + situations already seen.
+    /// Live ticks continue over SSE after the client hydrates from this.
+    /// </summary>
+    public LiveSnapshot? Snapshot(string matchId)
+    {
+        var feed = Get(matchId);
+        if (feed is null) return null;
+        lock (feed)
+        {
+            if (feed.Fixture is null) return null;
+            return new LiveSnapshot
+            {
+                MatchId = matchId,
+                SituationCount = feed.SituationCount,
+                Received = feed.Situations.Count,
+                Fixture = feed.Fixture.Value.Clone(),
+                Situations = feed.Situations.Select(s => s.Clone()).ToList(),
+            };
+        }
+    }
 
     public bool Apply(JsonElement message)
     {
