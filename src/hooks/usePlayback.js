@@ -30,7 +30,7 @@ function startPlayIndex(playTrack) {
   return atOne >= 0 ? atOne : 0;
 }
 
-export function usePlayback(match, { live = false, feedDone = true } = {}) {
+export function usePlayback(match, { live = false, feedDone = true, rate = 1 } = {}) {
   const situationCount = match?.situations?.length ?? 0;
   const playTrack = useMemo(
     () => buildPlayTrack(match),
@@ -50,6 +50,7 @@ export function usePlayback(match, { live = false, feedDone = true } = {}) {
   const [started, setStarted] = useState(live);
   const primed = useRef(false);
   const matchKey = match?.id;
+  const speed = Math.max(1, Number(rate) || 1);
 
   useEffect(() => {
     primed.current = false;
@@ -58,11 +59,12 @@ export function usePlayback(match, { live = false, feedDone = true } = {}) {
     setPlaying(live);
   }, [matchKey, live]);
 
-  // First rows from an empty live buffer: jump to kick-off and follow.
+  // Live chase: land on the tip (snapshot hydrate or first tick), then follow.
   useEffect(() => {
     if (!live || primed.current || playTrack.length === 0) return;
     primed.current = true;
-    setIndex(startPlayIndex(playTrack));
+    setIndex(Math.max(0, playTrack.length - 1));
+    setStarted(true);
     setPlaying(true);
   }, [live, playTrack.length]);
 
@@ -123,6 +125,13 @@ export function usePlayback(match, { live = false, feedDone = true } = {}) {
     });
   }, [live]);
 
+  const startOver = useCallback(() => {
+    const track = playTrackRef.current;
+    setStarted(true);
+    setIndex(startPlayIndex(track));
+    setPlaying(true);
+  }, []);
+
   useEffect(() => {
     if (!playing) return undefined;
     const track = playTrackRef.current;
@@ -138,7 +147,7 @@ export function usePlayback(match, { live = false, feedDone = true } = {}) {
         if (latest.length - 1 > index) {
           setIndex((i) => Math.min(i + 1, latest.length - 1));
         }
-      }, 320);
+      }, Math.max(80, Math.round(320 / speed)));
       return () => clearTimeout(wait);
     }
     const pass = passFrom(passesRef.current, index);
@@ -146,10 +155,10 @@ export function usePlayback(match, { live = false, feedDone = true } = {}) {
     const from = ballAt(track, pass ? index : prevBallIndex(track, index));
     const to = pass ? pass.to : displayBall(current, ballAt(track, index));
     // Never advance before the ball can finish the trip — stops trail breaks / teleports.
-    const moveMs = travelMs(from, to, PASS_SPEED);
+    const moveMs = travelMs(from, to, PASS_SPEED * speed);
     const holdMs = pass ? 140 : dwellFor(current, from, to);
-    const rawMs = Math.max(moveMs + 60, holdMs);
-    const ms = Number.isFinite(rawMs) ? Math.max(120, rawMs) : 280;
+    const rawMs = Math.max(moveMs + 60, holdMs) / speed;
+    const ms = Number.isFinite(rawMs) ? Math.max(40, rawMs) : Math.max(40, 280 / speed);
     const jumpTo = pass ? pass.end : null;
     const timer = setTimeout(() => {
       setIndex((i) => {
@@ -161,7 +170,7 @@ export function usePlayback(match, { live = false, feedDone = true } = {}) {
       });
     }, ms);
     return () => clearTimeout(timer);
-  }, [playing, index, live, feedDone, tipWaitKey]);
+  }, [playing, index, live, feedDone, tipWaitKey, speed]);
 
   return {
     timeline,
@@ -180,5 +189,6 @@ export function usePlayback(match, { live = false, feedDone = true } = {}) {
     seekEvent,
     pause,
     toggle,
+    startOver,
   };
 }
