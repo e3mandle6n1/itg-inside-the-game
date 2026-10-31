@@ -1,5 +1,6 @@
 export {
   EVENT_LABELS,
+  TIMELINE_FILTERS,
   PHASE_LABELS,
   BALL_SPEED,
   PASS_SPEED,
@@ -64,6 +65,7 @@ export {
   buildIncidentTimeline,
   incidentIndexAtPlay,
   liveTimelineRows,
+  filterTimelineRows,
   groupTimelinePeriods,
   scoreAt,
   minuteAt,

@@ -22,6 +22,22 @@ export const EVENT_LABELS = {
   possession: "Possession",
 };
 
+/** PitchIQ-style timeline filters → incident kinds. */
+export const TIMELINE_FILTERS = [
+  { id: "all", kinds: null },
+  { id: "pass", kinds: ["pass"] },
+  {
+    id: "shot",
+    kinds: ["goal", "shotontarget", "shotofftarget", "shotblocked", "goalkeeper_saved"],
+  },
+  { id: "recovery", kinds: ["interception", "tackle"] },
+  { id: "tackle", kinds: ["tackle"] },
+  { id: "pressure", kinds: ["pressure"] },
+  { id: "possession", kinds: ["possession", "throwin", "goal_kick"] },
+  { id: "setpiece", kinds: ["corner", "freekick", "freekick_taken"] },
+  { id: "card", kinds: ["card"] },
+];
+
 export const SITOVER_TYPES = new Set([
   "goal",
   "card",

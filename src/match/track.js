@@ -1,4 +1,4 @@
-import { EVENT_LABELS } from "./constants.js";
+import { EVENT_LABELS, TIMELINE_FILTERS } from "./constants.js";
 import { clampPitch, clockLabel, attackDepth, eventKind, possessionPhase, ATTACK_FROM } from "./util.js";
 import { holdFor, hasSitover } from "./events.js";
 import { travelMs, promoteKeeperSaves } from "./ball.js";
@@ -132,7 +132,7 @@ export function incidentIndexAtPlay(marks, playIndex) {
 }
 
 /** Marks up to markIndex, newest first for the live caption list. */
-export function liveTimelineRows(marks, markIndex) {
+export function liveTimelineRows(marks, markIndex, filterId = "all") {
   if (!marks?.length || markIndex == null || markIndex < 0) return [];
   const end = Math.min(markIndex, marks.length - 1);
   const rows = [];
@@ -140,7 +140,15 @@ export function liveTimelineRows(marks, markIndex) {
     rows.push({ ...marks[i], markIndex: i });
   }
   rows.reverse();
-  return rows;
+  return filterTimelineRows(rows, filterId);
+}
+
+export function filterTimelineRows(rows, filterId = "all") {
+  if (!filterId || filterId === "all") return rows;
+  const spec = TIMELINE_FILTERS.find((row) => row.id === filterId);
+  if (!spec?.kinds?.length) return rows;
+  const allow = new Set(spec.kinds);
+  return rows.filter((event) => allow.has(event.incident || event.type));
 }
 
 function periodMeta(event) {
