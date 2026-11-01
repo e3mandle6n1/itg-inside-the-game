@@ -1,6 +1,6 @@
 import { useUi } from "../../context/UiContext.jsx";
 
-export default function ReceiptCard({ receipt }) {
+export default function ReceiptCard({ receipt, clock }) {
   const { t } = useUi();
   if (!receipt) return null;
 
@@ -9,31 +9,45 @@ export default function ReceiptCard({ receipt }) {
     ? Math.max(1, ...chart.bars.flatMap((bar) => [bar.a || 0, bar.b || 0]))
     : 1;
 
+  const groundedOk = receipt.status === "live" && receipt.inScope !== false;
+  const foundry = String(receipt.model || "").startsWith("foundry:");
+  const stamp = clock || receipt.clock || "";
+
   return (
     <article className="receipt-card">
       <header className="receipt-card-head">
+        <div className="receipt-hero-row">
+          <span className={`receipt-factcheck${groundedOk ? " is-ok" : " is-fail"}`}>
+            {groundedOk ? t("factChecked") : t("factCheckedFail")}
+          </span>
+          {stamp ? (
+            <span className="receipt-computed">{t("computedAt")} {stamp}</span>
+          ) : null}
+        </div>
         <p className="receipt-question">{receipt.question}</p>
         <div className="receipt-badges">
-          <span className="receipt-badge is-live">
-            <i /> AI narrative: {receipt.status}
+          <span className={`receipt-badge${foundry ? " is-foundry" : " is-meta"}`}>
+            {foundry ? t("viaFoundry") : t("viaRules")} · {receipt.model}
           </span>
           <span className="receipt-badge is-grounded">
-            Grounded: {receipt.grounded} numbers checked
+            {receipt.grounded} {t("numbersChecked")}
           </span>
-          <span className="receipt-badge is-meta">
-            {receipt.model} · {receipt.latency}
-          </span>
+          <span className="receipt-badge is-meta">{receipt.latency}</span>
         </div>
+        {receipt.toolsUsed?.length ? (
+          <p className="receipt-tools">
+            {t("toolsUsed")}: {receipt.toolsUsed.join(" · ")}
+          </p>
+        ) : null}
       </header>
 
       <p className="receipt-narrative">{receipt.narrative}</p>
 
       <div className="receipt-figures">
         {receipt.figures.map((fig) => (
-          <div className="receipt-figure" key={fig.evidence}>
+          <div className="receipt-figure" key={fig.evidence || fig.label}>
             <strong>{fig.value}</strong>
             <span>{fig.label}</span>
-            <code>{fig.evidence}</code>
           </div>
         ))}
       </div>

@@ -1,7 +1,14 @@
 import { useUi } from "../../context/UiContext.jsx";
-import { SUGGESTIONS } from "../../studio/suggest.js";
 
-export default function SuggestPanel({ activeId, onSelect, query, onQueryChange }) {
+export default function SuggestPanel({
+  suggestions = [],
+  activeId,
+  onSelect,
+  query,
+  onQueryChange,
+  onSubmitQuery,
+  busy,
+}) {
   const { t } = useUi();
 
   return (
@@ -12,19 +19,28 @@ export default function SuggestPanel({ activeId, onSelect, query, onQueryChange 
         <p className="studio-rail-lede">{t("askLede")}</p>
       </div>
 
-      <label className="studio-search">
-        <span className="studio-search-label">{t("search")}</span>
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder={t("searchPlaceholder")}
-          aria-label={t("search")}
-        />
-      </label>
+      <form
+        className="studio-search"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmitQuery?.();
+        }}
+      >
+        <label>
+          <span className="studio-search-label">{t("search")}</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder={t("searchPlaceholder")}
+            aria-label={t("search")}
+            disabled={busy}
+          />
+        </label>
+      </form>
 
       <ul className="studio-suggest-list">
-        {SUGGESTIONS.map((row) => {
+        {suggestions.map((row) => {
           const on = row.id === activeId;
           return (
             <li key={row.id}>
@@ -32,6 +48,7 @@ export default function SuggestPanel({ activeId, onSelect, query, onQueryChange 
                 type="button"
                 className={`studio-suggest${on ? " is-on" : ""}`}
                 onClick={() => onSelect(row)}
+                disabled={busy}
               >
                 <span className="studio-suggest-prompt">{row.prompt}</span>
                 <span className="studio-suggest-hint">{row.hint}</span>

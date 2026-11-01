@@ -1,10 +1,14 @@
 import { useUi } from "../../context/UiContext.jsx";
-import { receiptFor } from "../../studio/receipts.js";
+import AgentPipeline from "./AgentPipeline.jsx";
 import ReceiptCard from "./ReceiptCard.jsx";
 
-export default function ReceiptRail({ receiptId }) {
+export default function ReceiptRail({
+  receipt,
+  busy,
+  error,
+  clock,
+}) {
   const { t } = useUi();
-  const receipt = receiptFor(receiptId);
 
   return (
     <aside className="studio-rail studio-rail-right" aria-label={t("answerTitle")}>
@@ -13,7 +17,12 @@ export default function ReceiptRail({ receiptId }) {
         <h2>{t("answerTitle")}</h2>
         <p className="studio-rail-lede">{t("answerLede")}</p>
       </div>
-      <ReceiptCard receipt={receipt} />
+
+      <AgentPipeline receipt={receipt} busy={busy} />
+
+      {error ? <p className="studio-rail-error">{error}</p> : null}
+      {busy && !receipt ? <p className="studio-rail-busy">{t("loading")}</p> : null}
+      <ReceiptCard receipt={receipt} clock={clock} />
     </aside>
   );
 }
