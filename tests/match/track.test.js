@@ -150,6 +150,18 @@ describe("liveTimelineRows", () => {
     expect(liveTimelineRows(marks, -1)).toEqual([]);
     expect(liveTimelineRows([], 0)).toEqual([]);
   });
+
+  it("filters by event kind", () => {
+    const mixed = [
+      { type: "pass", text: "p1", playIndex: 0 },
+      { type: "goal", text: "g1", playIndex: 1 },
+      { type: "card", text: "c1", playIndex: 2 },
+      { type: "shotontarget", text: "s1", playIndex: 3 },
+    ];
+    expect(liveTimelineRows(mixed, 3, "shot").map((r) => r.text)).toEqual(["s1", "g1"]);
+    expect(liveTimelineRows(mixed, 3, "card").map((r) => r.text)).toEqual(["c1"]);
+    expect(liveTimelineRows(mixed, 3, "pass").map((r) => r.text)).toEqual(["p1"]);
+  });
 });
 
 describe("groupTimelinePeriods", () => {

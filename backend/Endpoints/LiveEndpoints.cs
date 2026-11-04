@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Touchline.Api.Models;
 using Touchline.Api.Services;
 
 namespace Touchline.Api.Endpoints;
@@ -7,6 +8,16 @@ public static class LiveEndpoints
 {
     public static IEndpointRouteBuilder MapLiveEndpoints(this IEndpointRouteBuilder app)
     {
+        app.MapGet("/api/live/{matchId}/snapshot", (
+            string matchId,
+            HubFeedStore store,
+            IEventHubPublisher publisher) =>
+        {
+            var snap = store.Snapshot(matchId) ?? new LiveSnapshot { MatchId = matchId };
+            snap.Publishing = publisher.IsPublishing(matchId);
+            return Results.Ok(snap);
+        });
+
         app.MapGet("/live/{matchId}", async (
             string matchId,
             HttpContext http,

@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import Transport from "./components/Transport.jsx";
 import { UiProvider, useUi } from "./context/UiContext.jsx";
 import { useHubFeed } from "./hooks/useHubFeed.js";
 import { usePlayback } from "./hooks/usePlayback.js";
-import LangPicker from "./components/LangPicker.jsx";
+import DirectorBar from "./components/DirectorBar.jsx";
 import ThemeSwitch from "./components/ThemeSwitch.jsx";
 import LiveTracker from "./views/LiveTracker.jsx";
 import StudioShell from "./views/StudioShell.jsx";
@@ -16,43 +15,63 @@ function readParam(name) {
   }
 }
 
-function Tracker({ match, feedDone, bridge, live }) {
-  const playback = usePlayback(match, { live, feedDone });
+function Tracker({
+  match,
+  matchId,
+  setMatchId,
+  catalog,
+  feedDone,
+  live,
+}) {
+  const [rate, setRate] = useState(60);
+  const [mode, setMode] = useState("casual");
+  const [supporting, setSupporting] = useState("neutral");
+  const [favoritePlayer, setFavoritePlayer] = useState("");
+  const [focusMetric, setFocusMetric] = useState("pressing");
+  const [askBusy, setAskBusy] = useState(false);
+
+  const playback = usePlayback(match, { live, feedDone, rate });
   const clock = playback.ended || playback.event?.type === "match_ended"
     ? "FT"
-    : playback.event?.clock || playback.event?.minute != null
-      ? `${playback.event.minute}'`
-      : "";
-
-  useEffect(() => {
-    const onKey = (event) => {
-      if (event.code !== "Space" && event.key !== " ") return;
-      const tag = event.target?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || event.target?.isContentEditable) {
-        return;
-      }
-      event.preventDefault();
-      playback.toggle();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [playback.toggle]);
+    : playback.event?.clock || (playback.minute != null ? `${playback.minute}'` : "");
 
   return (
-    <StudioShell>
-      <main>
-        <LiveTracker match={match} playback={playback} />
-      </main>
-      <Transport
-        clock={clock}
-        index={playback.index}
-        max={Math.max(0, playback.playTrack.length - 1)}
+    <>
+      <DirectorBar
         playing={playback.playing}
         onToggle={playback.toggle}
-        onSeek={playback.seek}
-        bridge={bridge}
+        onStartOver={playback.startOver}
+        rate={rate}
+        onRateChange={setRate}
+        catalog={catalog}
+        matchId={matchId}
+        onMatchChange={setMatchId}
+        match={match}
+        mode={mode}
+        onModeChange={setMode}
+        supporting={supporting}
+        onSupportingChange={setSupporting}
+        favoritePlayer={favoritePlayer}
+        onFavoritePlayerChange={setFavoritePlayer}
+        focusMetric={focusMetric}
+        onFocusMetricChange={setFocusMetric}
+        busy={askBusy}
       />
-    </StudioShell>
+      <StudioShell
+        matchId={matchId}
+        playIndex={playback.index}
+        clock={clock}
+        mode={mode}
+        supporting={supporting}
+        favoritePlayer={favoritePlayer}
+        focusMetric={focusMetric}
+        onBusyChange={setAskBusy}
+      >
+        <main>
+          <LiveTracker match={match} playback={playback} />
+        </main>
+      </StudioShell>
+    </>
   );
 }
 
@@ -105,14 +124,21 @@ function AppShell({ matchId, setMatchId }) {
         if (!cancelled) setError(err.message);
       });
 
-    fetch(`/api/publish/${matchId}`, { method: "POST" })
-      .then((response) => {
-        if (!response.ok) throw new Error(`Could not publish ${matchId}`);
+    // Refresh should resume the in-memory hub buffer, not restart publish at 0'.
+    (async () => {
+      try {
+        const snapRes = await fetch(`/api/live/${encodeURIComponent(matchId)}/snapshot`);
+        const snap = snapRes.ok ? await snapRes.json() : null;
+        const hasFeed = Boolean(snap?.fixture) && (snap.received > 0 || snap.publishing);
+        if (!hasFeed) {
+          const pub = await fetch(`/api/publish/${matchId}`, { method: "POST" });
+          if (!pub.ok) throw new Error(`Could not publish ${matchId}`);
+        }
         if (!cancelled) setFeedReady(true);
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setFeedReady(false);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
@@ -125,12 +151,8 @@ function AppShell({ matchId, setMatchId }) {
   let feedLabel = null;
   if (feedReady) {
     if (!bridge.total) feedLabel = t("bridgeWaiting");
-    else {
-      const count = `${bridge.received}/${bridge.total}`;
-      if (bridge.done) feedLabel = `${t("bridgeDone")} ${count}`;
-      else if (bridge.streaming) feedLabel = `Bridge · ${count}`;
-      else feedLabel = `${t("bridgePaused")} ${count}`;
-    }
+    else if (bridge.done) feedLabel = t("bridgeDone");
+    else feedLabel = "Live";
   }
 
   return (
@@ -139,24 +161,8 @@ function AppShell({ matchId, setMatchId }) {
         <div className="app-bar-row">
           <strong className="brand">Touchline Radar</strong>
           <div className="app-bar-controls">
-            {catalog ? (
-              <label className="match-picker">
-                <span className="match-picker-label">{t("match")}</span>
-                <select
-                  value={matchId}
-                  onChange={(event) => setMatchId(event.target.value)}
-                  aria-label={t("match")}
-                >
-                  {catalog.matches.map((row) => (
-                    <option key={row.id} value={row.id}>{row.title}</option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
             <div className="app-bar-tools" role="group" aria-label="Display">
               <ThemeSwitch />
-              <span className="app-bar-divider" aria-hidden="true" />
-              <LangPicker />
             </div>
           </div>
         </div>
@@ -175,9 +181,11 @@ function AppShell({ matchId, setMatchId }) {
         <Tracker
           key={`${matchId}-${live ? "live" : "boot"}`}
           match={match}
+          matchId={matchId}
+          setMatchId={setMatchId}
+          catalog={catalog}
           live={live}
           feedDone={!live || bridge.done}
-          bridge={feedReady ? bridge : null}
         />
       ) : null}
     </>

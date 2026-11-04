@@ -14,12 +14,15 @@ const empty = {
 function reduce(state, action) {
   if (action.type === "reset") return empty;
   if (action.type === "fixture") {
+    // Snapshot hydrate brings its own situations. A catch-up fixture after that
+    // keeps them so a refresh does not dump the user at 0'. A republish clears.
+    const keep = action.preserve && state.situations.length > 0;
     return {
       ...state,
       fixture: action.fixture,
       total: action.total,
-      situations: [],
-      held: [],
+      situations: action.situations || (keep ? state.situations : []),
+      held: keep ? state.held : [],
       error: "",
       stalled: false,
     };
@@ -36,7 +39,6 @@ function reduce(state, action) {
   }
   if (action.type === "stalled") {
     if (state.stalled && state.fixture) return state;
-    // No fixture yet: surface the error so the UI does not sit on "Loading…" forever.
     if (!state.fixture) {
       return { ...state, stalled: true, error: action.error || "Feed is not reachable." };
     }
@@ -54,9 +56,11 @@ export function useHubFeed(matchId, { enabled = false } = {}) {
   const [state, dispatch] = useReducer(reduce, empty);
   const pendingRef = useRef([]);
   const flushTimerRef = useRef(0);
+  const lastSeqRef = useRef(0);
 
   useEffect(() => {
     dispatch({ type: "reset" });
+    lastSeqRef.current = 0;
     if (!enabled || !matchId) return undefined;
 
     let closed = false;
@@ -75,7 +79,6 @@ export function useHubFeed(matchId, { enabled = false } = {}) {
     const queueSituation = (situation) => {
       pendingRef.current.push(situation);
       if (flushTimerRef.current) return;
-      // Batch hub ticks so React is not rebuilt per situation (esp. on SSE replay).
       flushTimerRef.current = window.setTimeout(flush, 80);
     };
 
@@ -84,17 +87,29 @@ export function useHubFeed(matchId, { enabled = false } = {}) {
       source = new EventSource(`/live/${encodeURIComponent(matchId)}`);
       source.addEventListener("fixture", (event) => {
         attempts = 0;
-        pendingRef.current = [];
-        if (flushTimerRef.current) {
-          window.clearTimeout(flushTimerRef.current);
-          flushTimerRef.current = 0;
-        }
         const message = JSON.parse(event.data);
-        dispatch({ type: "fixture", fixture: message.fixture, total: message.situationCount });
+        const preserve = lastSeqRef.current > 0;
+        if (!preserve) {
+          pendingRef.current = [];
+          if (flushTimerRef.current) {
+            window.clearTimeout(flushTimerRef.current);
+            flushTimerRef.current = 0;
+          }
+        }
+        dispatch({
+          type: "fixture",
+          fixture: message.fixture,
+          total: message.situationCount,
+          preserve,
+        });
       });
       source.addEventListener("situation", (event) => {
         attempts = 0;
         const message = JSON.parse(event.data);
+        const seq = Number(message.seq) || 0;
+        // Skip backlog already applied from snapshot (seq is 1-based for situations).
+        if (seq > 0 && seq <= lastSeqRef.current) return;
+        if (seq > lastSeqRef.current) lastSeqRef.current = seq;
         if (message.situation) queueSituation(message.situation);
       });
       source.onerror = () => {
@@ -108,7 +123,28 @@ export function useHubFeed(matchId, { enabled = false } = {}) {
       };
     };
 
-    connect();
+    (async () => {
+      try {
+        const response = await fetch(`/api/live/${encodeURIComponent(matchId)}/snapshot`);
+        if (response.ok) {
+          const snap = await response.json();
+          if (closed) return;
+          if (snap.fixture) {
+            const situations = snap.situations || [];
+            lastSeqRef.current = snap.received || situations.length;
+            dispatch({
+              type: "fixture",
+              fixture: snap.fixture,
+              total: snap.situationCount || 0,
+              situations,
+            });
+          }
+        }
+      } catch {
+        // SSE still connects; live ticks may arrive without a snapshot.
+      }
+      if (!closed) connect();
+    })();
 
     return () => {
       closed = true;

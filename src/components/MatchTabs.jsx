@@ -4,7 +4,7 @@ import HeadToHead from "./HeadToHead.jsx";
 import LineupsPanel from "./LineupsPanel.jsx";
 import StandingsTable from "./StandingsTable.jsx";
 import StatBars from "./StatBars.jsx";
-import { iconFor, liveTimelineRows, statsAt } from "../match";
+import { iconFor, liveTimelineRows, TIMELINE_FILTERS, statsAt } from "../match";
 
 const TAB_IDS = [
   ["timeline", "tabTimeline", "tab-timeline"],
@@ -66,34 +66,54 @@ function Statistics({ match, playTrack, playIndex }) {
 
 function TimelineList({ timeline, index, onSeek, sheetRef }) {
   const { t } = useUi();
-  const rows = useMemo(() => liveTimelineRows(timeline, index), [timeline, index]);
+  const [filter, setFilter] = useState("all");
+  const rows = useMemo(
+    () => liveTimelineRows(timeline, index, filter),
+    [timeline, index, filter],
+  );
 
   useEffect(() => {
     const sheet = sheetRef?.current;
     if (sheet) sheet.scrollTop = 0;
-  }, [index, sheetRef]);
+  }, [index, filter, sheetRef]);
 
   return (
     <div className="tl-live">
       <div className="tl-heading">{t("timeline")}</div>
-      <ol className="tl">
-        {rows.map((event) => {
-          const i = event.markIndex;
-          return (
-            <li key={`${event.playIndex ?? event.order}-${i}`}>
-              <button
-                type="button"
-                className={i === index ? "on" : ""}
-                onClick={() => onSeek(i)}
-              >
-                <img className="tl-ico" src={`/icons/${iconFor(event)}.svg`} alt="" />
-                <time>{event.clock}</time>
-                <span>{event.text}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
+      <div className="tl-filters" role="toolbar" aria-label={t("tlFilters")}>
+        {TIMELINE_FILTERS.map((row) => (
+          <button
+            key={row.id}
+            type="button"
+            className={filter === row.id ? "is-on" : ""}
+            onClick={() => setFilter(row.id)}
+          >
+            {t(`tlFilter_${row.id}`)}
+          </button>
+        ))}
+      </div>
+      {rows.length === 0 ? (
+        <p className="tl-empty">{t("tlFilterEmpty")}</p>
+      ) : (
+        <ol className="tl">
+          {rows.map((event) => {
+            const i = event.markIndex;
+            return (
+              <li key={`${event.playIndex ?? event.order}-${i}`}>
+                <button
+                  type="button"
+                  className={i === index ? "on" : ""}
+                  onClick={() => onSeek(i)}
+                >
+                  <img className="tl-ico" src={`/icons/${iconFor(event)}.svg`} alt="" />
+                  <time>{event.clock}</time>
+                  <span>{event.text}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </div>
   );
 }
